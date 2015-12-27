@@ -30,6 +30,17 @@ public class Mapping extends BaseModel {
     @Column
     private Date dataRegistro;
 
+    public Mapping() {
+        super();
+    }
+
+    public Mapping(double latitude, double longitude, double decibel) {
+        super();
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.decibel = decibel;
+    }
+
     public long getId() {
         return id;
     }

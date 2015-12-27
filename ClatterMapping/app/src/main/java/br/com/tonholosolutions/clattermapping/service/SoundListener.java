@@ -6,6 +6,9 @@ import android.media.MediaRecorder;
 import android.os.AsyncTask;
 import android.util.Log;
 
+import java.util.LinkedList;
+import java.util.concurrent.ExecutionException;
+
 /**
  * Created on 13/11/2015.
  *
@@ -13,15 +16,17 @@ import android.util.Log;
  */
 public final class SoundListener {
     private static final String TAG = SoundListener.class.getSimpleName();
-    private static final int CHANNEL = AudioFormat.CHANNEL_IN_STEREO;
+    private static final int CHANNEL = AudioFormat.CHANNEL_IN_MONO;
     private static final int ENCODING_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
+    private static final int SAMPLE_RATE_IN_HZ = 44100;
     private static SoundListener sInstance;
 
     private AudioRecord mAudioRecord;
     private boolean mIsRecording;
-    private int mSampleRateInHz = 44100;
     private int mBufferSize;
     private RecordAudioTask mRecordAudioTask;
+    private LinkedList<Double> mDbCollected = new LinkedList<>();
+    private double mAvgSpl;
 
     private SoundListener() {
         initAudioRecord();
@@ -32,8 +37,8 @@ public final class SoundListener {
      * Inicia o Audio Record
      */
     private void initAudioRecord() {
-        mBufferSize = AudioRecord.getMinBufferSize(mSampleRateInHz, CHANNEL, ENCODING_FORMAT);
-        mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, mSampleRateInHz, CHANNEL,
+        mBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE_IN_HZ, CHANNEL, ENCODING_FORMAT);
+        mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE_IN_HZ, CHANNEL,
                 ENCODING_FORMAT, mBufferSize);
     }
 
@@ -47,11 +52,20 @@ public final class SoundListener {
 
     public void startRecording() {
         mRecordAudioTask = new RecordAudioTask();
+        mDbCollected = new LinkedList<>();
+        mAvgSpl = -1;
         mRecordAudioTask.execute();
     }
 
     public void stopRecording() {
         mIsRecording = false;
+
+        try {
+            mAvgSpl = mRecordAudioTask.get();
+        } catch (InterruptedException | ExecutionException e) {
+            Log.e(TAG, e.getMessage(), e);
+        }
+
         mRecordAudioTask = null;
     }
 
@@ -65,6 +79,7 @@ public final class SoundListener {
         // Sum the values in the buffer
         for (short chunk : sndChunk) {
             sum += Math.pow(chunk, 2);
+//            sum += chunk;
         }
 
         // Get the mean and take the square root to get rms
@@ -79,12 +94,16 @@ public final class SoundListener {
         // Init some vars
         double db = 0;
         //double ref = 32767.0; // reference value used for dB calculation
-        double ref = 2 * 0.1;
+        double ref = 2 * 0.00001;
 
         // dB calculation
-        db = 20 * Math.log10(rms / ref);
+        db = 10 * Math.log10(rms / ref);
 
         return db;
+    }
+
+    public double getAvgSpl() {
+        return mAvgSpl;
     }
 
     private class RecordAudioTask extends AsyncTask<Void, Double, Double> {
@@ -111,7 +130,6 @@ public final class SoundListener {
                     // Calculate dB
                     db = calculateDb(rms);
 
-                    // Update the UI with the rms value
                     publishProgress(db);
 
                     sumDb += db;
@@ -126,6 +144,7 @@ public final class SoundListener {
         protected void onProgressUpdate(Double... values) {
             super.onProgressUpdate(values);
             Log.d(TAG, "dB: " + String.valueOf(values[0]));
+            mDbCollected.add(values[0]);
         }
     }
 }

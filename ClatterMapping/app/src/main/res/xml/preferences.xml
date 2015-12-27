@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <EditTextPreference
+        android:key="@+id/pref_capture_audio_frequence"
+        android:defaultValue="5000"
+        android:title="@string/preference_capture_audio_frequence"
+        />
+</PreferenceScreen>
